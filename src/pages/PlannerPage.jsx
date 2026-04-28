@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react'
-import { X, Copy, Clipboard, Loader2 } from 'lucide-react'
+import { X, Copy, Clipboard, Loader2, History } from 'lucide-react'
 import { correctSpelling } from '../lib/claude'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { MEALS } from '../store/useAppStore'
-import { getWeekStart } from '../lib/utils'
+import { getWeekStart, getPrevWeekStart } from '../lib/utils'
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
@@ -250,6 +250,7 @@ export default function PlannerPage() {
   const menuKey = ['weekly_menu', user.id, weekStart]
 
   const [clipboard, setClipboard] = useState(null)
+  const [importStatus, setImportStatus] = useState(null) // null | 'empty' | 'ok'
 
   // ── Queries ──────────────────────────────────────────────
   const { data: rows = [], isLoading } = useQuery({
@@ -319,6 +320,44 @@ export default function PlannerPage() {
     onSuccess: invalidate,
   })
 
+  const importPrevMutation = useMutation({
+    mutationFn: async () => {
+      const prevWeekStart = getPrevWeekStart(weekStart)
+      const { data: prevRows, error } = await supabase
+        .from('weekly_menu')
+        .select('day, meal, meal_text, recipe_id')
+        .eq('user_id', user.id)
+        .eq('week_start', prevWeekStart)
+        .not('meal_text', 'is', null)
+      if (error) throw error
+      if (!prevRows.length) return 0
+      const { error: upsertError } = await supabase
+        .from('weekly_menu')
+        .upsert(
+          prevRows.map(({ day, meal, meal_text, recipe_id }) => ({
+            user_id: user.id,
+            week_start: weekStart,
+            day,
+            meal,
+            meal_text,
+            recipe_id,
+          })),
+          { onConflict: 'user_id,week_start,day,meal' }
+        )
+      if (upsertError) throw upsertError
+      return prevRows.length
+    },
+    onSuccess: (count) => {
+      if (count === 0) {
+        setImportStatus('empty')
+      } else {
+        setImportStatus('ok')
+        invalidate()
+      }
+      setTimeout(() => setImportStatus(null), 3000)
+    },
+  })
+
   const resetMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -348,14 +387,40 @@ export default function PlannerPage() {
           <h1 className="text-xl font-bold text-gray-800">Menú semanal</h1>
           <p className="text-sm text-gray-400">{rows.length} de {totalSlots} slots rellenados</p>
         </div>
-        <button
-          onClick={() => resetMutation.mutate()}
-          disabled={resetMutation.isPending}
-          className="btn-secondary text-sm"
-        >
-          Limpiar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => importPrevMutation.mutate()}
+            disabled={importPrevMutation.isPending}
+            className="btn-secondary text-sm flex items-center gap-1.5"
+            title="Importar semana anterior"
+          >
+            {importPrevMutation.isPending
+              ? <Loader2 size={14} className="animate-spin" />
+              : <History size={14} />
+            }
+            <span className="hidden sm:inline">Sem. anterior</span>
+          </button>
+          <button
+            onClick={() => resetMutation.mutate()}
+            disabled={resetMutation.isPending}
+            className="btn-secondary text-sm"
+          >
+            Limpiar
+          </button>
+        </div>
       </div>
+
+      {/* Import feedback */}
+      {importStatus === 'empty' && (
+        <div className="mb-3 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-500 text-center">
+          La semana anterior no tiene datos
+        </div>
+      )}
+      {importStatus === 'ok' && (
+        <div className="mb-3 px-3 py-2 bg-accent-50 rounded-lg text-sm text-accent-700 text-center">
+          Semana anterior importada
+        </div>
+      )}
 
       {/* Clipboard indicator */}
       {clipboard && (

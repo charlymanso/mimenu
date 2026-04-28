@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Plus, RefreshCw, CheckSquare, Square, X } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { useAppStore } from '../store/useAppStore'
 import { getWeekStart, guessCategory, normalizeText, stemText, betterName } from '../lib/utils'
 
 const CATEGORY_ICONS = {
@@ -17,15 +16,28 @@ const CATEGORY_ICONS = {
 
 export default function ShoppingPage() {
   const { user } = useAuth()
-  const {
-    shoppingList, setShoppingList,
-    addShoppingItem, toggleShoppingItem, removeShoppingItem, clearCheckedItems,
-  } = useAppStore()
+  const queryClient = useQueryClient()
+  const listKey = ['shopping_list', user.id]
+  const invalidateList = () => queryClient.invalidateQueries({ queryKey: listKey })
 
   const weekStart = useMemo(() => getWeekStart(), [])
   const [newItem, setNewItem] = useState({ name: '', quantity: '', unit: '', category: 'Otros' })
   const [showAdd, setShowAdd] = useState(false)
   const [showPantryModal, setShowPantryModal] = useState(false)
+
+  // ── Queries ──────────────────────────────────────────────────
+  const { data: shoppingList = [], isLoading: listLoading } = useQuery({
+    queryKey: listKey,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shopping_list')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at')
+      if (error) throw error
+      return data
+    },
+  })
 
   const { data: menuRows = [] } = useQuery({
     queryKey: ['weekly_menu', user.id, weekStart],
@@ -52,7 +64,7 @@ export default function ShoppingPage() {
     },
   })
 
-  const { data: pantryItems = [], refetch: refetchPantry } = useQuery({
+  const { refetch: refetchPantry } = useQuery({
     queryKey: ['pantry_items', user.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -64,9 +76,89 @@ export default function ShoppingPage() {
     },
   })
 
+  // ── Mutations ────────────────────────────────────────────────
+
+  // Reemplaza toda la lista (delete + insert bulk)
+  const generateMutation = useMutation({
+    mutationFn: async (items) => {
+      const { error: delErr } = await supabase
+        .from('shopping_list')
+        .delete()
+        .eq('user_id', user.id)
+      if (delErr) throw delErr
+      if (!items.length) return
+      const { error: insErr } = await supabase
+        .from('shopping_list')
+        .insert(items.map(({ name, quantity, unit, category }) => ({
+          user_id: user.id,
+          name,
+          quantity: quantity !== '' && quantity != null ? Number(quantity) : null,
+          unit: unit || null,
+          category: category || 'Otros',
+          checked: false,
+          manual: false,
+        })))
+      if (insErr) throw insErr
+    },
+    onSuccess: invalidateList,
+  })
+
+  const addMutation = useMutation({
+    mutationFn: async (item) => {
+      const { error } = await supabase
+        .from('shopping_list')
+        .insert({
+          user_id: user.id,
+          name: item.name.trim(),
+          quantity: item.quantity !== '' ? Number(item.quantity) : null,
+          unit: item.unit || null,
+          category: item.category || 'Otros',
+          checked: false,
+          manual: true,
+        })
+      if (error) throw error
+    },
+    onSuccess: invalidateList,
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, checked }) => {
+      const { error } = await supabase
+        .from('shopping_list')
+        .update({ checked: !checked })
+        .eq('id', id)
+        .eq('user_id', user.id)
+      if (error) throw error
+    },
+    onSuccess: invalidateList,
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase
+        .from('shopping_list')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id)
+      if (error) throw error
+    },
+    onSuccess: invalidateList,
+  })
+
+  const clearCheckedMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('shopping_list')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('checked', true)
+      if (error) throw error
+    },
+    onSuccess: invalidateList,
+  })
+
+  // ── Generate list from weekly menu ───────────────────────────
   const handleGenerate = async (withPantry) => {
-    // stemText key: strips accents + trailing plural 's' so
-    // "platano", "plátano", "platanos" all map to the same bucket
     const ingredientMap = {}
     const freeTextMap = {}
 
@@ -109,8 +201,6 @@ export default function ShoppingPage() {
     })
     console.groupEnd()
 
-    // Merge free-text meal occurrences into ingredientMap on the same stem so
-    // they aggregate with recipe ingredients and are visible to pantry deduction.
     console.group('[merge] freeText -> ingredientMap')
     for (const [key, { name, count }] of Object.entries(freeTextMap)) {
       if (ingredientMap[key]) {
@@ -133,11 +223,6 @@ export default function ShoppingPage() {
       const { data: freshPantry = [] } = await refetchPantry()
       console.log('pantry raw:', JSON.stringify(freshPantry))
       console.group('[deduct] pantry vs ingredientMap')
-      console.log('ingredientMap:')
-      Object.entries(ingredientMap).forEach(([k, v]) =>
-        console.log(`  stem="${k}" | name="${v.name}" qty=${v.quantity} unit="${v.unit}"`)
-      )
-      console.log('pantry deduction:')
       freshPantry.forEach(pantryItem => {
         const deduct = parseFloat(pantryItem.quantity) || 0
         const key = stemText(pantryItem.name)
@@ -151,19 +236,16 @@ export default function ShoppingPage() {
       console.groupEnd()
     }
 
-    // Remove any entry whose quantity was deducted to 0 or below.
     Object.keys(ingredientMap).forEach(k => {
       const q = ingredientMap[k].quantity
       if (q != null && q <= 0) delete ingredientMap[k]
     })
 
-    const items = Object.values(ingredientMap)
-      .filter(i => i.quantity == null || i.quantity > 0)
-      .map(i => ({ ...i, quantity: i.quantity ?? '', id: crypto.randomUUID(), checked: false }))
-
-    setShoppingList(items)
+    const items = Object.values(ingredientMap).filter(i => i.quantity == null || i.quantity > 0)
+    generateMutation.mutate(items)
   }
 
+  // ── Derived state ────────────────────────────────────────────
   const grouped = shoppingList.reduce((acc, item) => {
     const cat = item.category ?? 'Otros'
     if (!acc[cat]) acc[cat] = []
@@ -176,10 +258,17 @@ export default function ShoppingPage() {
 
   const handleAddItem = () => {
     if (!newItem.name.trim()) return
-    addShoppingItem({ ...newItem, manual: true })
+    addMutation.mutate(newItem)
     setNewItem({ name: '', quantity: '', unit: '', category: 'Otros' })
     setShowAdd(false)
   }
+
+  // ── Render ───────────────────────────────────────────────────
+  if (listLoading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
+    </div>
+  )
 
   return (
     <div>
@@ -191,9 +280,11 @@ export default function ShoppingPage() {
         <div className="flex gap-2">
           <button
             onClick={() => { refetchPantry(); setShowPantryModal(true) }}
+            disabled={generateMutation.isPending}
             className="btn-secondary text-sm flex items-center gap-1"
           >
-            <RefreshCw size={14} /> Regenerar
+            <RefreshCw size={14} className={generateMutation.isPending ? 'animate-spin' : ''} />
+            Regenerar
           </button>
           <button onClick={() => setShowAdd(!showAdd)} className="btn-primary text-sm">
             <Plus size={16} className="inline" />
@@ -255,7 +346,7 @@ export default function ShoppingPage() {
         <>
           {checked > 0 && (
             <button
-              onClick={clearCheckedItems}
+              onClick={() => clearCheckedMutation.mutate()}
               className="text-sm text-red-400 hover:text-red-600 mb-3 font-medium"
             >
               Eliminar marcados ({checked})
@@ -277,7 +368,10 @@ export default function ShoppingPage() {
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors
                         ${item.checked ? 'bg-gray-50' : 'bg-white border border-gray-100 shadow-sm'}`}
                     >
-                      <button onClick={() => toggleShoppingItem(item.id)} className="flex-shrink-0">
+                      <button
+                        onClick={() => toggleMutation.mutate({ id: item.id, checked: item.checked })}
+                        className="flex-shrink-0"
+                      >
                         {item.checked
                           ? <CheckSquare size={18} className="text-accent-500" />
                           : <Square size={18} className="text-gray-300" />
@@ -292,7 +386,7 @@ export default function ShoppingPage() {
                         </span>
                       )}
                       <button
-                        onClick={() => removeShoppingItem(item.id)}
+                        onClick={() => removeMutation.mutate(item.id)}
                         className="text-gray-200 hover:text-red-400 flex-shrink-0"
                       >
                         <X size={14} />
@@ -305,6 +399,7 @@ export default function ShoppingPage() {
           </div>
         </>
       )}
+
       {showPantryModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">

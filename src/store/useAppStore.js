@@ -22,9 +22,6 @@ export const useAppStore = create(
       // Pantry items
       pantryItems: [],
 
-      // Shopping list
-      shoppingList: [],
-
       // --- Weekly Menu actions ---
       setMealSlot: (day, meal, recipeId) =>
         set(state => ({
@@ -72,35 +69,16 @@ export const useAppStore = create(
       deletePantryItem: id =>
         set(state => ({ pantryItems: state.pantryItems.filter(i => i.id !== id) })),
 
-      // --- Shopping list actions ---
-      setShoppingList: list => set({ shoppingList: list }),
-
-      addShoppingItem: item =>
-        set(state => ({
-          shoppingList: [
-            ...state.shoppingList,
-            { ...item, id: crypto.randomUUID(), checked: false },
-          ],
-        })),
-
-      toggleShoppingItem: id =>
-        set(state => ({
-          shoppingList: state.shoppingList.map(i =>
-            i.id === id ? { ...i, checked: !i.checked } : i
-          ),
-        })),
-
-      removeShoppingItem: id =>
-        set(state => ({ shoppingList: state.shoppingList.filter(i => i.id !== id) })),
-
-      clearCheckedItems: () =>
-        set(state => ({ shoppingList: state.shoppingList.filter(i => !i.checked) })),
     }),
     {
       name: 'mimenu-storage',
-      version: 1,
+      version: 2,
       migrate: (state, version) => {
-        if (version === 0) return { ...state, weeklyMenu: emptyWeek() }
+        if (version < 2) {
+          // eslint-disable-next-line no-unused-vars
+          const { shoppingList: _, ...rest } = state
+          return { ...rest, weeklyMenu: emptyWeek() }
+        }
         return state
       },
     }

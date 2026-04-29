@@ -5,7 +5,6 @@ import Layout from './components/layout/Layout'
 import PlannerPage from './pages/PlannerPage'
 import RecipesPage from './pages/RecipesPage'
 import ShoppingPage from './pages/ShoppingPage'
-import PantryPage from './pages/PantryPage'
 import SettingsPage from './pages/SettingsPage'
 import AuthPage from './pages/AuthPage'
 
@@ -32,7 +31,6 @@ function AppRoutes() {
           <Route path="planner"  element={<PlannerPage />} />
           <Route path="recipes"  element={<RecipesPage />} />
           <Route path="shopping" element={<ShoppingPage />} />
-          <Route path="pantry"    element={<PantryPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

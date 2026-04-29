@@ -1,12 +1,11 @@
 import { Outlet, NavLink, Link } from 'react-router-dom'
-import { CalendarDays, BookOpen, ShoppingCart, Package, Settings } from 'lucide-react'
+import { CalendarDays, BookOpen, ShoppingCart, Settings } from 'lucide-react'
 
 const navItems = [
   { to: '/planner',  icon: CalendarDays, label: 'Menú' },
   { to: '/recipes',  icon: BookOpen,     label: 'Recetas' },
   { to: '/shopping', icon: ShoppingCart, label: 'Compra' },
-  { to: '/pantry',   icon: Package,      label: 'Despensa' },
-  { to: '/settings', icon: Settings,     label: 'Ajustes' },
+  { to: '/settings', icon: Settings,    label: 'Ajustes' },
 ]
 
 export default function Layout() {

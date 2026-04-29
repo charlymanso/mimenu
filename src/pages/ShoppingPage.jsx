@@ -23,7 +23,6 @@ export default function ShoppingPage() {
   const weekStart = useMemo(() => getWeekStart(), [])
   const [newItem, setNewItem] = useState({ name: '', quantity: '', unit: '', category: 'Otros' })
   const [showAdd, setShowAdd] = useState(false)
-  const [showPantryModal, setShowPantryModal] = useState(false)
 
   // ── Queries ──────────────────────────────────────────────────
   const { data: shoppingList = [], isLoading: listLoading } = useQuery({
@@ -58,18 +57,6 @@ export default function ShoppingPage() {
       const { data, error } = await supabase
         .from('recipes')
         .select('id, name, ingredients(*)')
-        .eq('user_id', user.id)
-      if (error) throw error
-      return data
-    },
-  })
-
-  const { refetch: refetchPantry } = useQuery({
-    queryKey: ['pantry_items', user.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('pantry_items')
-        .select('name, quantity')
         .eq('user_id', user.id)
       if (error) throw error
       return data
@@ -158,11 +145,10 @@ export default function ShoppingPage() {
   })
 
   // ── Generate list from weekly menu ───────────────────────────
-  const handleGenerate = async (withPantry) => {
+  const handleGenerate = () => {
     const ingredientMap = {}
     const freeTextMap = {}
 
-    console.group('[stem] building maps')
     menuRows.forEach(row => {
       const { meal_text, recipe_id } = row
       if (!meal_text && !recipe_id) return
@@ -175,7 +161,6 @@ export default function ShoppingPage() {
         recipe.ingredients?.forEach(({ name, quantity, unit }) => {
           if (!name?.trim()) return
           const key = stemText(name)
-          console.log(`  ingredient "${name}" -> stem="${key}"`)
           const qty = (quantity !== null && quantity !== '' && quantity !== undefined)
             ? Number(quantity)
             : null
@@ -190,7 +175,6 @@ export default function ShoppingPage() {
         const text = meal_text.trim()
         if (!text) return
         const key = stemText(text)
-        console.log(`  freeText  "${text}" -> stem="${key}"`)
         const prev = freeTextMap[key]
         if (!prev) {
           freeTextMap[key] = { name: text, count: 1 }
@@ -199,16 +183,12 @@ export default function ShoppingPage() {
         }
       }
     })
-    console.groupEnd()
 
-    console.group('[merge] freeText -> ingredientMap')
     for (const [key, { name, count }] of Object.entries(freeTextMap)) {
       if (ingredientMap[key]) {
-        console.log(`  "${name}" (stem="${key}") merges into ingredient "${ingredientMap[key].name}" qty ${ingredientMap[key].quantity} + ${count}`)
         ingredientMap[key].name = betterName(ingredientMap[key].name, name)
         ingredientMap[key].quantity = (ingredientMap[key].quantity ?? 0) + count
       } else {
-        console.log(`  "${name}" (stem="${key}") -> new entry count=${count}`)
         ingredientMap[key] = {
           name,
           quantity: count > 1 ? count : null,
@@ -217,31 +197,8 @@ export default function ShoppingPage() {
         }
       }
     }
-    console.groupEnd()
 
-    if (withPantry) {
-      const { data: freshPantry = [] } = await refetchPantry()
-      console.log('pantry raw:', JSON.stringify(freshPantry))
-      console.group('[deduct] pantry vs ingredientMap')
-      freshPantry.forEach(pantryItem => {
-        const deduct = parseFloat(pantryItem.quantity) || 0
-        const key = stemText(pantryItem.name)
-        const hit = ingredientMap[key]
-        console.log(`  "${pantryItem.name}" -> stem="${key}" | hit: ${hit ? `qty=${hit.quantity}` : 'NONE'}`)
-        if (hit) {
-          hit.quantity = deduct > 0 ? Math.max(0, hit.quantity - deduct) : 0
-          console.log(`    deducted ${deduct} -> remaining ${hit.quantity}`)
-        }
-      })
-      console.groupEnd()
-    }
-
-    Object.keys(ingredientMap).forEach(k => {
-      const q = ingredientMap[k].quantity
-      if (q != null && q <= 0) delete ingredientMap[k]
-    })
-
-    const items = Object.values(ingredientMap).filter(i => i.quantity == null || i.quantity > 0)
+    const items = Object.values(ingredientMap)
     generateMutation.mutate(items)
   }
 
@@ -279,7 +236,7 @@ export default function ShoppingPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => { refetchPantry(); setShowPantryModal(true) }}
+            onClick={handleGenerate}
             disabled={generateMutation.isPending}
             className="btn-secondary text-sm flex items-center gap-1"
           >
@@ -400,30 +357,6 @@ export default function ShoppingPage() {
         </>
       )}
 
-      {showPantryModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
-            <p className="text-base font-semibold text-gray-800 mb-1">Generar lista de compra</p>
-            <p className="text-sm text-gray-500 mb-6">
-              ¿Descontar los productos que ya tienes en la despensa?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setShowPantryModal(false); handleGenerate(false) }}
-                className="btn-secondary flex-1"
-              >
-                No
-              </button>
-              <button
-                onClick={() => { setShowPantryModal(false); handleGenerate(true) }}
-                className="btn-primary flex-1"
-              >
-                Sí, descontar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

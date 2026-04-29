@@ -19,9 +19,6 @@ export const useAppStore = create(
       // Recipes stored locally (will sync with Supabase)
       recipes: [],
 
-      // Pantry items
-      pantryItems: [],
-
       // --- Weekly Menu actions ---
       setMealSlot: (day, meal, recipeId) =>
         set(state => ({
@@ -55,29 +52,20 @@ export const useAppStore = create(
 
       getRecipeById: id => get().recipes.find(r => r.id === id) ?? null,
 
-      // --- Pantry actions ---
-      addPantryItem: item =>
-        set(state => ({
-          pantryItems: [...state.pantryItems, { ...item, id: crypto.randomUUID() }],
-        })),
-
-      updatePantryItem: (id, updates) =>
-        set(state => ({
-          pantryItems: state.pantryItems.map(i => (i.id === id ? { ...i, ...updates } : i)),
-        })),
-
-      deletePantryItem: id =>
-        set(state => ({ pantryItems: state.pantryItems.filter(i => i.id !== id) })),
-
     }),
     {
       name: 'mimenu-storage',
-      version: 2,
+      version: 3,
       migrate: (state, version) => {
         if (version < 2) {
           // eslint-disable-next-line no-unused-vars
           const { shoppingList: _, ...rest } = state
           return { ...rest, weeklyMenu: emptyWeek() }
+        }
+        if (version < 3) {
+          // eslint-disable-next-line no-unused-vars
+          const { pantryItems: _, ...rest } = state
+          return rest
         }
         return state
       },

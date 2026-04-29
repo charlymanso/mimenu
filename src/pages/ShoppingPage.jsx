@@ -72,6 +72,7 @@ export default function ShoppingPage() {
         .from('shopping_list')
         .delete()
         .eq('user_id', user.id)
+        .eq('manual', false)
       if (delErr) throw delErr
       if (!items.length) return
       const { error: insErr } = await supabase

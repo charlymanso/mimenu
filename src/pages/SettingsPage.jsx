@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Camera, Loader2, Pencil, Check, X, ChevronDown, ChevronUp, LogOut, Monitor, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -70,11 +70,10 @@ function ReadonlyValue({ children }) {
 }
 
 export default function SettingsPage() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, isRecoveryMode, clearRecoveryMode } = useAuth()
   const queryClient = useQueryClient()
 
   // ── Profile ───────────────────────────────────────────────────
-  const [displayName, setDisplayName] = useState('')
   const [draftName,   setDraftName]   = useState('')
   const [nameEditing, setNameEditing] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState(null)
@@ -83,7 +82,8 @@ export default function SettingsPage() {
   const [profileErr, setProfileErr] = useState(null)
   const fileRef = useRef()
 
-  const { isLoading: profileLoading } = useQuery({
+  // Source of truth: query data. No side-effects inside queryFn.
+  const { isLoading: profileLoading, data: profileData } = useQuery({
     queryKey: ['profile', user.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -92,17 +92,21 @@ export default function SettingsPage() {
         .eq('id', user.id)
         .maybeSingle()
       if (error) throw error
-      if (data) {
-        setDisplayName(data.display_name ?? '')
-        setAvatarPreview(data.avatar_url ?? null)
-      }
       return data
     },
   })
 
+  // Derive display name directly from server data.
+  const displayName = profileData?.display_name ?? ''
+
+  // Sync avatar preview with server when no local file is pending.
+  useEffect(() => {
+    if (!avatarFile) setAvatarPreview(profileData?.avatar_url ?? null)
+  }, [profileData?.avatar_url]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const profileMutation = useMutation({
-    mutationFn: async ({ name, file, currentPreview }) => {
-      let avatar_url = currentPreview
+    mutationFn: async ({ name, file, serverAvatarUrl }) => {
+      let avatar_url = serverAvatarUrl
       if (file) {
         const ext  = file.name.split('.').pop()
         const path = `${user.id}/avatar.${ext}`
@@ -116,16 +120,14 @@ export default function SettingsPage() {
         .from('profiles')
         .upsert({ id: user.id, display_name: name.trim() || null, avatar_url })
       if (error) throw error
-      return { avatar_url, name: name.trim() }
     },
-    onSuccess: ({ avatar_url, name }) => {
-      setAvatarPreview(avatar_url)
+    onSuccess: () => {
       setAvatarFile(null)
-      setDisplayName(name)
       setNameEditing(false)
       setProfileErr(null)
       setProfileOk('Perfil guardado')
       setTimeout(() => setProfileOk(null), 3000)
+      // Refetch so displayName and avatarPreview update from server.
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] })
     },
     onError: (e) => { setProfileErr(e.message); setProfileOk(null) },
@@ -134,13 +136,13 @@ export default function SettingsPage() {
   const saveName = () => profileMutation.mutate({
     name: draftName,
     file: avatarFile,
-    currentPreview: avatarPreview,
+    serverAvatarUrl: profileData?.avatar_url ?? null,
   })
 
   const saveAvatar = () => profileMutation.mutate({
     name: displayName,
     file: avatarFile,
-    currentPreview: avatarPreview,
+    serverAvatarUrl: profileData?.avatar_url ?? null,
   })
 
   const handleAvatarChange = (e) => {
@@ -152,7 +154,7 @@ export default function SettingsPage() {
 
   const discardAvatar = () => {
     setAvatarFile(null)
-    queryClient.invalidateQueries({ queryKey: ['profile', user.id] })
+    // useEffect will restore avatarPreview from profileData on next render.
   }
 
   const initials = (displayName || user.email || '?').charAt(0).toUpperCase()
@@ -189,6 +191,11 @@ export default function SettingsPage() {
   const [newPassword,      setNewPassword]      = useState('')
   const [confirmPassword,  setConfirmPassword]  = useState('')
   const [passwordEditing,  setPasswordEditing]  = useState(false)
+
+  // Auto-open password field when coming from a reset-email link.
+  useEffect(() => {
+    if (isRecoveryMode) setPasswordEditing(true)
+  }, [isRecoveryMode])
   const [passwordOk,       setPasswordOk]       = useState(null)
   const [passwordErr,      setPasswordErr]      = useState(null)
   const [passwordBusy,     setPasswordBusy]     = useState(false)
@@ -202,6 +209,7 @@ export default function SettingsPage() {
     if (error) {
       setPasswordErr(error.message)
     } else {
+      clearRecoveryMode()
       setPasswordOk('Contraseña actualizada')
       setNewPassword(''); setConfirmPassword('')
       setPasswordEditing(false)
@@ -369,6 +377,40 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {/* ── Apariencia ── */}
+      <Section title="Apariencia">
+        <div className="space-y-2">
+          <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Tema</p>
+          {[
+            { value: 'auto',  label: 'Automático', desc: 'Según el sistema', Icon: Monitor },
+            { value: 'light', label: 'Claro',       desc: null,               Icon: Sun     },
+            { value: 'dark',  label: 'Oscuro',      desc: null,               Icon: Moon    },
+          ].map(({ value, label, desc, Icon }) => {
+            const active = theme === value
+            return (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors text-left ${
+                  active
+                    ? 'border-primary-400 bg-primary-50'
+                    : 'border-gray-100 bg-gray-50'
+                }`}
+              >
+                <Icon size={16} className={active ? 'text-primary-600' : 'text-gray-400'} />
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${active ? 'text-primary-700' : 'text-gray-700'}`}>
+                    {label}
+                  </p>
+                  {desc && <p className="text-xs text-gray-400">{desc}</p>}
+                </div>
+                {active && <Check size={15} className="text-primary-500 flex-shrink-0" />}
+              </button>
+            )
+          })}
+        </div>
+      </Section>
+
       {/* ── Sobre la app ── */}
       <Section title="Sobre MiMenú">
         <div className="flex items-center justify-between text-sm">
@@ -413,40 +455,6 @@ export default function SettingsPage() {
             )}
           </div>
         ))}
-      </Section>
-
-      {/* ── Apariencia ── */}
-      <Section title="Apariencia">
-        <div className="space-y-2">
-          <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Tema</p>
-          {[
-            { value: 'auto',  label: 'Automático', desc: 'Según el sistema', Icon: Monitor },
-            { value: 'light', label: 'Claro',       desc: null,               Icon: Sun     },
-            { value: 'dark',  label: 'Oscuro',      desc: null,               Icon: Moon    },
-          ].map(({ value, label, desc, Icon }) => {
-            const active = theme === value
-            return (
-              <button
-                key={value}
-                onClick={() => setTheme(value)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors text-left ${
-                  active
-                    ? 'border-primary-400 bg-primary-50'
-                    : 'border-gray-100 bg-gray-50'
-                }`}
-              >
-                <Icon size={16} className={active ? 'text-primary-600' : 'text-gray-400'} />
-                <div className="flex-1">
-                  <p className={`text-sm font-medium ${active ? 'text-primary-700' : 'text-gray-700'}`}>
-                    {label}
-                  </p>
-                  {desc && <p className="text-xs text-gray-400">{desc}</p>}
-                </div>
-                {active && <Check size={15} className="text-primary-500 flex-shrink-0" />}
-              </button>
-            )
-          })}
-        </div>
       </Section>
 
       {/* ── Cerrar sesión ── */}

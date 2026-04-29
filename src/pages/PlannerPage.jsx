@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react'
-import { X, Copy, Clipboard, Loader2, History, CheckCircle2 } from 'lucide-react'
+import { X, Copy, Clipboard, Loader2, History, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { correctSpelling } from '../lib/claude'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { MEALS } from '../store/useAppStore'
-import { getWeekStart, getPrevWeekStart } from '../lib/utils'
+import { getWeekStart, getPrevWeekStart, getNextWeekStart } from '../lib/utils'
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
@@ -255,10 +255,26 @@ function MealSlot({ day, meal, text, done, onSave, onClear, onCopy, onToggleDone
 
 // ── Page ──────────────────────────────────────────────────────
 
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
+function formatWeekRange(weekStartStr) {
+  const [y, m, d] = weekStartStr.split('-').map(Number)
+  const start = new Date(y, m - 1, d)
+  const end   = new Date(y, m - 1, d + 6)
+  const sm = start.getMonth(), em = end.getMonth()
+  return sm === em
+    ? `del ${start.getDate()} al ${end.getDate()} de ${MONTHS[em]}`
+    : `del ${start.getDate()} de ${MONTHS[sm]} al ${end.getDate()} de ${MONTHS[em]}`
+}
+
 export default function PlannerPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const weekStart = useMemo(() => getWeekStart(), [])
+
+  const currentWeekStart = useMemo(() => getWeekStart(), [])
+  const [weekStart, setWeekStart] = useState(currentWeekStart)
+  const isCurrentWeek = weekStart === currentWeekStart
+
   const menuKey = ['weekly_menu', user.id, weekStart]
 
   const [clipboard, setClipboard] = useState(null)
@@ -417,7 +433,7 @@ export default function PlannerPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Menú semanal</h1>
           <p className="text-sm text-gray-400">{rows.length} de {totalSlots} comidas programadas</p>
@@ -443,6 +459,34 @@ export default function PlannerPage() {
             Limpiar
           </button>
         </div>
+      </div>
+
+      {/* Week navigator */}
+      <div className="flex items-center justify-between mb-4 bg-white rounded-xl border border-orange-100 shadow-sm px-3 py-2">
+        <button
+          onClick={() => setWeekStart(w => getPrevWeekStart(w))}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-orange-50 transition-colors"
+          aria-label="Semana anterior"
+        >
+          <ChevronLeft size={18} />
+        </button>
+
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-700">{formatWeekRange(weekStart)}</p>
+          {isCurrentWeek && (
+            <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full mt-0.5">
+              Hoy
+            </span>
+          )}
+        </div>
+
+        <button
+          onClick={() => setWeekStart(w => getNextWeekStart(w))}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-orange-50 transition-colors"
+          aria-label="Semana siguiente"
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
 
       {/* Import feedback */}

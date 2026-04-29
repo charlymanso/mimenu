@@ -1,20 +1,36 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 
+// mode: 'signin' | 'signup' | 'forgot'
+
 export default function AuthPage() {
-  const { signIn, signUp } = useAuth()
-  const [mode, setMode] = useState('signin')
-  const [email, setEmail] = useState('')
+  const { signIn, signUp, resetPassword } = useAuth()
+  const [mode,     setMode]     = useState('signin')
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(null)
-  const [message, setMessage] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [error,    setError]    = useState(null)
+  const [message,  setMessage]  = useState(null)
+  const [loading,  setLoading]  = useState(false)
+
+  const reset = () => { setError(null); setMessage(null) }
+
+  const switchMode = (next) => { setMode(next); reset() }
 
   const handleSubmit = async e => {
     e.preventDefault()
-    setError(null)
-    setMessage(null)
+    reset()
     setLoading(true)
+
+    if (mode === 'forgot') {
+      const { error } = await resetPassword(email)
+      if (error) {
+        setError(error.message)
+      } else {
+        setMessage('Si existe una cuenta con ese email, recibirás un enlace de recuperación.')
+      }
+      setLoading(false)
+      return
+    }
 
     const { error } = mode === 'signin'
       ? await signIn(email, password)
@@ -23,16 +39,21 @@ export default function AuthPage() {
     if (error) {
       setError(error.message)
     } else if (mode === 'signup') {
-      setMessage('Revisa tu email para confirmar la cuenta.')
+      setMessage('Revisa tu email para confirmar tu cuenta antes de iniciar sesión.')
     }
 
     setLoading(false)
   }
 
-  const toggleMode = () => {
-    setMode(m => m === 'signin' ? 'signup' : 'signin')
-    setError(null)
-    setMessage(null)
+  const titles = {
+    signin: 'Iniciar sesión',
+    signup: 'Crear cuenta',
+    forgot: 'Recuperar contraseña',
+  }
+  const subtitles = {
+    signin: 'Bienvenido de nuevo',
+    signup: 'Empieza a planificar tu menú',
+    forgot: 'Te enviaremos un enlace por email',
   }
 
   return (
@@ -50,12 +71,8 @@ export default function AuthPage() {
         </div>
 
         <div className="card">
-          <h2 className="font-bold text-lg text-gray-800 mb-1">
-            {mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}
-          </h2>
-          <p className="text-sm text-gray-400 mb-5">
-            {mode === 'signin' ? 'Bienvenido de nuevo' : 'Empieza a planificar tu menú'}
-          </p>
+          <h2 className="font-bold text-lg text-gray-800 mb-1">{titles[mode]}</h2>
+          <p className="text-sm text-gray-400 mb-5">{subtitles[mode]}</p>
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
@@ -69,34 +86,68 @@ export default function AuthPage() {
                 autoFocus
               />
             </div>
-            <div>
-              <label className="label">Contraseña</label>
-              <input
-                type="password"
-                className="input"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {mode !== 'forgot' && (
+              <div>
+                <label className="label">Contraseña</label>
+                <input
+                  type="password"
+                  className="input"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+            )}
+
+            {error   && <p className="text-sm text-red-500">{error}</p>}
             {message && <p className="text-sm text-green-600">{message}</p>}
 
             <button type="submit" className="btn-primary w-full" disabled={loading}>
-              {loading
-                ? 'Cargando...'
-                : mode === 'signin' ? 'Entrar' : 'Registrarse'}
+              {loading ? 'Cargando...' : {
+                signin: 'Entrar',
+                signup: 'Registrarse',
+                forgot: 'Enviar enlace',
+              }[mode]}
             </button>
           </form>
 
-          <p className="text-sm text-center text-gray-400 mt-4">
-            {mode === 'signin' ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
-            <button onClick={toggleMode} className="text-primary-600 font-medium hover:underline">
-              {mode === 'signin' ? 'Regístrate' : 'Inicia sesión'}
-            </button>
-          </p>
+          {/* Footer links */}
+          <div className="mt-4 space-y-2 text-center">
+            {mode === 'signin' && (
+              <>
+                <p className="text-sm text-gray-400">
+                  ¿No tienes cuenta?{' '}
+                  <button onClick={() => switchMode('signup')} className="text-primary-600 font-medium hover:underline">
+                    Regístrate
+                  </button>
+                </p>
+                <p className="text-sm">
+                  <button onClick={() => switchMode('forgot')} className="text-gray-400 hover:text-primary-600 hover:underline transition-colors">
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </p>
+              </>
+            )}
+
+            {mode === 'signup' && (
+              <p className="text-sm text-gray-400">
+                ¿Ya tienes cuenta?{' '}
+                <button onClick={() => switchMode('signin')} className="text-primary-600 font-medium hover:underline">
+                  Inicia sesión
+                </button>
+              </p>
+            )}
+
+            {mode === 'forgot' && (
+              <p className="text-sm text-gray-400">
+                <button onClick={() => switchMode('signin')} className="text-primary-600 font-medium hover:underline">
+                  Volver al inicio de sesión
+                </button>
+              </p>
+            )}
+          </div>
         </div>
 
       </div>

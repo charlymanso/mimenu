@@ -4,6 +4,12 @@ export function getPrevWeekStart(weekStart) {
   return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`
 }
 
+export function getNextWeekStart(weekStart) {
+  const [y, m, d] = weekStart.split('-').map(Number)
+  const next = new Date(y, m - 1, d + 7)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
+}
+
 export function getWeekStart() {
   const d = new Date()
   d.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1))

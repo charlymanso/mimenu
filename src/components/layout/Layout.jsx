@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, Link } from 'react-router-dom'
 import { CalendarDays, BookOpen, ShoppingCart, Package, Settings, LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -18,7 +18,7 @@ export default function Layout() {
       {/* Top header */}
       <header className="bg-white border-b border-orange-100 shadow-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/planner" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary-500 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg viewBox="0 0 20 20" width="18" height="18" fill="white" aria-hidden="true">
                 {/* dome */}
@@ -28,7 +28,7 @@ export default function Layout() {
               </svg>
             </div>
             <span className="font-bold text-xl text-primary-600">MiMenú</span>
-          </div>
+          </Link>
           <button
             onClick={signOut}
             title="Cerrar sesión"

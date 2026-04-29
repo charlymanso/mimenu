@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { X, Copy, Clipboard, Loader2, History } from 'lucide-react'
+import { X, Copy, Clipboard, Loader2, History, CheckCircle2 } from 'lucide-react'
 import { correctSpelling } from '../lib/claude'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -171,7 +171,7 @@ function SlotModal({ day, meal, current, recipes, clipboard, onSave, onClose }) 
 
 // ── Meal slot ─────────────────────────────────────────────────
 
-function MealSlot({ day, meal, text, onSave, onClear, onCopy, clipboard, recipes }) {
+function MealSlot({ day, meal, text, done, onSave, onClear, onCopy, onToggleDone, clipboard, recipes }) {
   const [open, setOpen] = useState(false)
 
   const handleSave = (value, recipeId = null) => {
@@ -184,28 +184,40 @@ function MealSlot({ day, meal, text, onSave, onClear, onCopy, clipboard, recipes
       <div
         className={`relative min-h-[52px] rounded-lg border-2 border-dashed cursor-pointer transition-all
           ${text
-            ? 'border-transparent bg-primary-50'
+            ? done
+              ? 'border-transparent bg-green-50'
+              : 'border-transparent bg-primary-50'
             : 'border-gray-200 hover:border-primary-300 hover:bg-orange-50'
           }`}
         onClick={() => setOpen(true)}
       >
         {text ? (
-          <div className="p-2 pr-11">
-            <p className="text-xs font-semibold text-primary-700 leading-tight">{text}</p>
+          <div className="p-2 pr-11 pb-5">
+            <p className={`text-xs font-semibold leading-tight ${done ? 'text-green-700' : 'text-primary-700'}`}>
+              {text}
+            </p>
             {/* Copy */}
             <button
               onClick={e => { e.stopPropagation(); onCopy() }}
               title="Copiar"
-              className="absolute top-1 right-5 text-primary-200 hover:text-primary-500 transition-colors"
+              className={`absolute top-1 right-5 transition-colors ${done ? 'text-green-200 hover:text-green-500' : 'text-primary-200 hover:text-primary-500'}`}
             >
               <Copy size={13} />
             </button>
             {/* Clear */}
             <button
               onClick={e => { e.stopPropagation(); onClear() }}
-              className="absolute top-1 right-1 text-primary-300 hover:text-primary-600 transition-colors"
+              className={`absolute top-1 right-1 transition-colors ${done ? 'text-green-300 hover:text-green-600' : 'text-primary-300 hover:text-primary-600'}`}
             >
               <X size={14} />
+            </button>
+            {/* Done toggle */}
+            <button
+              onClick={e => { e.stopPropagation(); onToggleDone() }}
+              title={done ? 'Marcar como pendiente' : 'Marcar como hecha'}
+              className={`absolute bottom-1 right-1 transition-colors ${done ? 'text-green-500 hover:text-green-700' : 'text-primary-200 hover:text-green-400'}`}
+            >
+              <CheckCircle2 size={14} />
             </button>
           </div>
         ) : (
@@ -258,7 +270,7 @@ export default function PlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('weekly_menu')
-        .select('day, meal, meal_text')
+        .select('day, meal, meal_text, done')
         .eq('user_id', user.id)
         .eq('week_start', weekStart)
       if (error) throw error
@@ -288,6 +300,15 @@ export default function PlannerPage() {
       if (base[day]) base[day][meal] = meal_text || null
     })
     return base
+  }, [rows])
+
+  const doneMap = useMemo(() => {
+    const map = {}
+    rows.forEach(({ day, meal, done }) => {
+      if (!map[day]) map[day] = {}
+      map[day][meal] = done || false
+    })
+    return map
   }, [rows])
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: menuKey })
@@ -358,6 +379,20 @@ export default function PlannerPage() {
     },
   })
 
+  const doneMutation = useMutation({
+    mutationFn: async ({ day, meal, done }) => {
+      const { error } = await supabase
+        .from('weekly_menu')
+        .update({ done })
+        .eq('user_id', user.id)
+        .eq('week_start', weekStart)
+        .eq('day', day)
+        .eq('meal', meal)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
+
   const resetMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -385,7 +420,7 @@ export default function PlannerPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Menú semanal</h1>
-          <p className="text-sm text-gray-400">{rows.length} de {totalSlots} slots rellenados</p>
+          <p className="text-sm text-gray-400">{rows.length} de {totalSlots} comidas programadas</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -452,9 +487,11 @@ export default function PlannerPage() {
                   day={day}
                   meal={meal}
                   text={weeklyMenu[day][meal]}
+                  done={doneMap[day]?.[meal] ?? false}
                   onSave={(text, recipeId) => saveMutation.mutate({ day, meal, text, recipeId })}
                   onClear={() => clearMutation.mutate({ day, meal })}
                   onCopy={() => setClipboard({ text: weeklyMenu[day][meal] })}
+                  onToggleDone={() => doneMutation.mutate({ day, meal, done: !(doneMap[day]?.[meal] ?? false) })}
                   clipboard={clipboard}
                   recipes={recipes}
                 />
@@ -479,9 +516,11 @@ export default function PlannerPage() {
                     day={day}
                     meal={meal}
                     text={weeklyMenu[day][meal]}
+                    done={doneMap[day]?.[meal] ?? false}
                     onSave={(text, recipeId) => saveMutation.mutate({ day, meal, text, recipeId })}
                     onClear={() => clearMutation.mutate({ day, meal })}
                     onCopy={() => setClipboard({ text: weeklyMenu[day][meal] })}
+                    onToggleDone={() => doneMutation.mutate({ day, meal, done: !(doneMap[day]?.[meal] ?? false) })}
                     clipboard={clipboard}
                     recipes={recipes}
                   />

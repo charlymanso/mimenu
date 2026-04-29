@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { useTheme } from './lib/useTheme'
 import Layout from './components/layout/Layout'
 import HomePage from './pages/HomePage'
 import PlannerPage from './pages/PlannerPage'
@@ -41,6 +42,7 @@ function AppRoutes() {
 }
 
 export default function App() {
+  useTheme()
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

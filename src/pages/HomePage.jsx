@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, Circle, Sun, Apple, Utensils, Coffee, Moon } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { CalendarDays, CheckCircle2, Sun, Apple, Utensils, Coffee, Moon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getWeekStart } from '../lib/utils'
@@ -20,8 +20,9 @@ const MEAL_META = {
 
 export default function HomePage() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const weekStart = useMemo(() => getWeekStart(), [])
-  const todayKey  = DAY_KEYS[new Date().getDay()]
+  const todayKey  = useMemo(() => DAY_KEYS[new Date().getDay()], [])
 
   const dateStr = new Date().toLocaleDateString('es-ES', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -66,6 +67,22 @@ export default function HomePage() {
 
   const doneCount = MEALS.filter(m => mealMap[m]?.done).length
   const displayName = profile?.display_name || ''
+
+  const menuKey = ['weekly_menu', user.id, weekStart]
+
+  const doneMutation = useMutation({
+    mutationFn: async ({ meal, done }) => {
+      const { error } = await supabase
+        .from('weekly_menu')
+        .update({ done })
+        .eq('user_id', user.id)
+        .eq('week_start', weekStart)
+        .eq('day', todayKey)
+        .eq('meal', meal)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: menuKey }),
+  })
 
   return (
     <div className="space-y-6">
@@ -120,8 +137,19 @@ export default function HomePage() {
                   {entry?.text ?? 'Sin planificar'}
                 </p>
               </div>
-              {isDone  && <CheckCircle2 size={15} className="text-green-500 flex-shrink-0" />}
-              {!isDone && hasText && <Circle size={15} className="text-primary-200 flex-shrink-0" />}
+              {hasText && (
+                <button
+                  onClick={() => doneMutation.mutate({ meal, done: !isDone })}
+                  title={isDone ? 'Desmarcar' : 'Marcar como hecha'}
+                  className={`flex-shrink-0 transition-colors ${
+                    isDone
+                      ? 'text-green-500 hover:text-green-700'
+                      : 'text-primary-200 hover:text-green-400'
+                  }`}
+                >
+                  <CheckCircle2 size={16} />
+                </button>
+              )}
             </div>
           )
         })}

@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Camera, Loader2, Pencil, Check, X, ChevronDown, ChevronUp, LogOut } from 'lucide-react'
+import { Camera, Loader2, Pencil, Check, X, ChevronDown, ChevronUp, LogOut, Monitor, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { useTheme } from '../lib/useTheme'
 
 const APP_VERSION = '1.0.0'
 
@@ -214,6 +215,9 @@ export default function SettingsPage() {
     setPasswordErr(null)
   }
 
+  // ── Theme ─────────────────────────────────────────────────────
+  const [theme, setTheme] = useTheme()
+
   // ── About — accordion ─────────────────────────────────────────
   const [legalOpen, setLegalOpen] = useState(null)
   const toggleLegal = (key) => setLegalOpen(prev => prev === key ? null : key)
@@ -409,6 +413,40 @@ export default function SettingsPage() {
             )}
           </div>
         ))}
+      </Section>
+
+      {/* ── Apariencia ── */}
+      <Section title="Apariencia">
+        <div className="space-y-2">
+          <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Tema</p>
+          {[
+            { value: 'auto',  label: 'Automático', desc: 'Según el sistema', Icon: Monitor },
+            { value: 'light', label: 'Claro',       desc: null,               Icon: Sun     },
+            { value: 'dark',  label: 'Oscuro',      desc: null,               Icon: Moon    },
+          ].map(({ value, label, desc, Icon }) => {
+            const active = theme === value
+            return (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors text-left ${
+                  active
+                    ? 'border-primary-400 bg-primary-50'
+                    : 'border-gray-100 bg-gray-50'
+                }`}
+              >
+                <Icon size={16} className={active ? 'text-primary-600' : 'text-gray-400'} />
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${active ? 'text-primary-700' : 'text-gray-700'}`}>
+                    {label}
+                  </p>
+                  {desc && <p className="text-xs text-gray-400">{desc}</p>}
+                </div>
+                {active && <Check size={15} className="text-primary-500 flex-shrink-0" />}
+              </button>
+            )
+          })}
+        </div>
       </Section>
 
       {/* ── Cerrar sesión ── */}

@@ -1,6 +1,5 @@
 import { Outlet, NavLink, Link } from 'react-router-dom'
-import { CalendarDays, BookOpen, ShoppingCart, Package, Settings, LogOut } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
+import { CalendarDays, BookOpen, ShoppingCart, Package, Settings } from 'lucide-react'
 
 const navItems = [
   { to: '/planner',  icon: CalendarDays, label: 'Menú' },
@@ -11,8 +10,6 @@ const navItems = [
 ]
 
 export default function Layout() {
-  const { signOut } = useAuth()
-
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top header */}
@@ -29,13 +26,6 @@ export default function Layout() {
             </div>
             <span className="font-bold text-xl text-primary-600">MiMenú</span>
           </Link>
-          <button
-            onClick={signOut}
-            title="Cerrar sesión"
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <LogOut size={18} />
-          </button>
         </div>
       </header>
 

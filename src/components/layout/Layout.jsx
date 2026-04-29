@@ -1,11 +1,12 @@
 import { Outlet, NavLink, Link } from 'react-router-dom'
-import { CalendarDays, BookOpen, ShoppingCart, Settings } from 'lucide-react'
+import { Home, CalendarDays, BookOpen, ShoppingCart, Settings } from 'lucide-react'
 
 const navItems = [
+  { to: '/home',     icon: Home,         label: 'Inicio' },
   { to: '/planner',  icon: CalendarDays, label: 'Menú' },
   { to: '/recipes',  icon: BookOpen,     label: 'Recetas' },
   { to: '/shopping', icon: ShoppingCart, label: 'Compra' },
-  { to: '/settings', icon: Settings,    label: 'Ajustes' },
+  { to: '/settings', icon: Settings,     label: 'Ajustes' },
 ]
 
 export default function Layout() {
@@ -14,7 +15,7 @@ export default function Layout() {
       {/* Top header */}
       <header className="bg-white border-b border-orange-100 shadow-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/planner" className="flex items-center gap-2">
+          <Link to="/home" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary-500 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg viewBox="0 0 20 20" width="18" height="18" fill="white" aria-hidden="true">
                 {/* dome */}

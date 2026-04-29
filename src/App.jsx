@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/layout/Layout'
+import HomePage from './pages/HomePage'
 import PlannerPage from './pages/PlannerPage'
 import RecipesPage from './pages/RecipesPage'
 import ShoppingPage from './pages/ShoppingPage'
@@ -27,7 +28,8 @@ function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/planner" replace />} />
+          <Route index element={<Navigate to="/home" replace />} />
+          <Route path="home"     element={<HomePage />} />
           <Route path="planner"  element={<PlannerPage />} />
           <Route path="recipes"  element={<RecipesPage />} />
           <Route path="shopping" element={<ShoppingPage />} />

@@ -6,7 +6,7 @@ import PlannerPage from './pages/PlannerPage'
 import RecipesPage from './pages/RecipesPage'
 import ShoppingPage from './pages/ShoppingPage'
 import PantryPage from './pages/PantryPage'
-import AiPage from './pages/AiPage'
+import SettingsPage from './pages/SettingsPage'
 import AuthPage from './pages/AuthPage'
 
 const queryClient = new QueryClient({
@@ -32,8 +32,8 @@ function AppRoutes() {
           <Route path="planner"  element={<PlannerPage />} />
           <Route path="recipes"  element={<RecipesPage />} />
           <Route path="shopping" element={<ShoppingPage />} />
-          <Route path="pantry"   element={<PantryPage />} />
-          <Route path="ai"       element={<AiPage />} />
+          <Route path="pantry"    element={<PantryPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

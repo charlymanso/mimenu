@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { CalendarDays, BookOpen, ShoppingCart, Package, Sparkles, LogOut } from 'lucide-react'
+import { CalendarDays, BookOpen, ShoppingCart, Package, Settings, LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
 const navItems = [
@@ -7,7 +7,7 @@ const navItems = [
   { to: '/recipes',  icon: BookOpen,     label: 'Recetas' },
   { to: '/shopping', icon: ShoppingCart, label: 'Compra' },
   { to: '/pantry',   icon: Package,      label: 'Despensa' },
-  { to: '/ai',       icon: Sparkles,     label: 'IA' },
+  { to: '/settings', icon: Settings,     label: 'Ajustes' },
 ]
 
 export default function Layout() {

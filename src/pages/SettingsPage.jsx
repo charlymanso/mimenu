@@ -16,22 +16,6 @@ function Section({ title, children }) {
   )
 }
 
-function FieldLabel({ label, editing, onEdit }) {
-  return (
-    <div className="flex items-center justify-between">
-      <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">{label}</p>
-      {!editing && (
-        <button
-          onClick={onEdit}
-          className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
-        >
-          <Pencil size={12} /> Editar
-        </button>
-      )}
-    </div>
-  )
-}
-
 function SaveCancel({ onSave, onCancel, busy, disabled }) {
   return (
     <div className="flex gap-2">
@@ -61,16 +45,8 @@ function Feedback({ ok, err }) {
   return null
 }
 
-function ReadonlyValue({ children }) {
-  return (
-    <p className="text-sm text-gray-600 py-2 px-3 bg-gray-50 rounded-lg truncate">
-      {children}
-    </p>
-  )
-}
-
 export default function SettingsPage() {
-  const { user, signOut, isRecoveryMode, clearRecoveryMode } = useAuth()
+  const { user, signOut, resetPassword } = useAuth()
   const queryClient = useQueryClient()
 
   // ── Profile ───────────────────────────────────────────────────
@@ -82,7 +58,6 @@ export default function SettingsPage() {
   const [profileErr, setProfileErr] = useState(null)
   const fileRef = useRef()
 
-  // Source of truth: query data. No side-effects inside queryFn.
   const { isLoading: profileLoading, data: profileData } = useQuery({
     queryKey: ['profile', user.id],
     queryFn: async () => {
@@ -96,10 +71,8 @@ export default function SettingsPage() {
     },
   })
 
-  // Derive display name directly from server data.
   const displayName = profileData?.display_name ?? ''
 
-  // Sync avatar preview with server when no local file is pending.
   useEffect(() => {
     if (!avatarFile) setAvatarPreview(profileData?.avatar_url ?? null)
   }, [profileData?.avatar_url]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -127,7 +100,6 @@ export default function SettingsPage() {
       setProfileErr(null)
       setProfileOk('Perfil guardado')
       setTimeout(() => setProfileOk(null), 3000)
-      // Refetch so displayName and avatarPreview update from server.
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] })
     },
     onError: (e) => { setProfileErr(e.message); setProfileOk(null) },
@@ -154,73 +126,26 @@ export default function SettingsPage() {
 
   const discardAvatar = () => {
     setAvatarFile(null)
-    // useEffect will restore avatarPreview from profileData on next render.
   }
 
   const initials = (displayName || user.email || '?').charAt(0).toUpperCase()
 
-  // ── Account — email ───────────────────────────────────────────
-  const [newEmail,     setNewEmail]     = useState('')
-  const [emailEditing, setEmailEditing] = useState(false)
-  const [emailOk,      setEmailOk]      = useState(null)
-  const [emailErr,     setEmailErr]     = useState(null)
-  const [emailBusy,    setEmailBusy]    = useState(false)
+  // ── Password reset ────────────────────────────────────────────
+  const [pwResetOk,   setPwResetOk]   = useState(null)
+  const [pwResetErr,  setPwResetErr]  = useState(null)
+  const [pwResetBusy, setPwResetBusy] = useState(false)
 
-  const handleEmailChange = async () => {
-    if (!newEmail.trim()) return
-    setEmailBusy(true); setEmailErr(null)
-    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
-    setEmailBusy(false)
+  const handlePasswordReset = async () => {
+    setPwResetBusy(true)
+    setPwResetErr(null)
+    const { error } = await resetPassword(user.email)
+    setPwResetBusy(false)
     if (error) {
-      setEmailErr(error.message)
+      setPwResetErr(error.message)
     } else {
-      setEmailOk('Revisa tu email para confirmar el cambio')
-      setNewEmail('')
-      setEmailEditing(false)
-      setTimeout(() => setEmailOk(null), 6000)
+      setPwResetOk('Te hemos enviado un email para cambiar la contraseña')
+      setTimeout(() => setPwResetOk(null), 6000)
     }
-  }
-
-  const cancelEmail = () => {
-    setEmailEditing(false)
-    setNewEmail('')
-    setEmailErr(null)
-  }
-
-  // ── Account — password ────────────────────────────────────────
-  const [newPassword,      setNewPassword]      = useState('')
-  const [confirmPassword,  setConfirmPassword]  = useState('')
-  const [passwordEditing,  setPasswordEditing]  = useState(false)
-
-  // Auto-open password field when coming from a reset-email link.
-  useEffect(() => {
-    if (isRecoveryMode) setPasswordEditing(true)
-  }, [isRecoveryMode])
-  const [passwordOk,       setPasswordOk]       = useState(null)
-  const [passwordErr,      setPasswordErr]      = useState(null)
-  const [passwordBusy,     setPasswordBusy]     = useState(false)
-
-  const handlePasswordChange = async () => {
-    if (newPassword.length < 6) { setPasswordErr('Mínimo 6 caracteres'); return }
-    if (newPassword !== confirmPassword) { setPasswordErr('Las contraseñas no coinciden'); return }
-    setPasswordBusy(true); setPasswordErr(null)
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    setPasswordBusy(false)
-    if (error) {
-      setPasswordErr(error.message)
-    } else {
-      clearRecoveryMode()
-      setPasswordOk('Contraseña actualizada')
-      setNewPassword(''); setConfirmPassword('')
-      setPasswordEditing(false)
-      setTimeout(() => setPasswordOk(null), 3000)
-    }
-  }
-
-  const cancelPassword = () => {
-    setPasswordEditing(false)
-    setNewPassword(''); setConfirmPassword('')
-    setPasswordErr(null)
   }
 
   // ── Theme ─────────────────────────────────────────────────────
@@ -290,10 +215,8 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Nombre */}
+            {/* Nombre — inline pencil edit */}
             <div className="space-y-2">
-              <FieldLabel label="Nombre" editing={nameEditing}
-                onEdit={() => { setDraftName(displayName); setNameEditing(true) }} />
               {nameEditing ? (
                 <>
                   <input className="input" placeholder="Tu nombre"
@@ -309,9 +232,18 @@ export default function SettingsPage() {
                 </>
               ) : (
                 <>
-                  <ReadonlyValue>
-                    {displayName || <span className="text-gray-400 italic">Sin nombre</span>}
-                  </ReadonlyValue>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">
+                      {displayName || <span className="text-gray-400 italic">Sin nombre</span>}
+                    </span>
+                    <button
+                      onClick={() => { setDraftName(displayName); setNameEditing(true) }}
+                      className="text-gray-400 hover:text-primary-600 transition-colors"
+                      aria-label="Editar nombre"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  </div>
                   <Feedback ok={profileOk} err={profileErr} />
                 </>
               )}
@@ -322,58 +254,23 @@ export default function SettingsPage() {
 
       {/* ── Cuenta ── */}
       <Section title="Cuenta">
-        {/* Email */}
-        <div className="space-y-2">
-          <FieldLabel label="Email" editing={emailEditing}
-            onEdit={() => setEmailEditing(true)} />
-          {emailEditing ? (
-            <>
-              <input className="input" type="email" placeholder="Nuevo email"
-                value={newEmail} onChange={e => setNewEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleEmailChange()}
-                autoFocus />
-              <Feedback ok={emailOk} err={emailErr} />
-              <SaveCancel
-                onSave={handleEmailChange}
-                onCancel={cancelEmail}
-                busy={emailBusy}
-                disabled={!newEmail.trim()}
-              />
-            </>
-          ) : (
-            <>
-              <ReadonlyValue>{user.email}</ReadonlyValue>
-              <Feedback ok={emailOk} err={emailErr} />
-            </>
-          )}
+        {/* Email — solo lectura */}
+        <div className="space-y-1">
+          <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Email</p>
+          <p className="text-sm text-gray-700">{user.email}</p>
         </div>
 
-        {/* Password */}
+        {/* Contraseña — botón de recuperación */}
         <div className="border-t border-gray-100 pt-4 space-y-2">
-          <FieldLabel label="Contraseña" editing={passwordEditing}
-            onEdit={() => setPasswordEditing(true)} />
-          {passwordEditing ? (
-            <>
-              <input className="input" type="password" placeholder="Nueva contraseña"
-                value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                autoFocus />
-              <input className="input" type="password" placeholder="Confirmar contraseña"
-                value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handlePasswordChange()} />
-              <Feedback ok={passwordOk} err={passwordErr} />
-              <SaveCancel
-                onSave={handlePasswordChange}
-                onCancel={cancelPassword}
-                busy={passwordBusy}
-                disabled={!newPassword}
-              />
-            </>
-          ) : (
-            <>
-              <ReadonlyValue>••••••••</ReadonlyValue>
-              <Feedback ok={passwordOk} err={passwordErr} />
-            </>
-          )}
+          <button
+            onClick={handlePasswordReset}
+            disabled={pwResetBusy}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            {pwResetBusy && <Loader2 size={13} className="animate-spin" />}
+            Cambiar contraseña
+          </button>
+          <Feedback ok={pwResetOk} err={pwResetErr} />
         </div>
       </Section>
 

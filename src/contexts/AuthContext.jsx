@@ -4,9 +4,8 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user,           setUser]           = useState(null)
-  const [loading,        setLoading]        = useState(true)
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false)
+  const [user,    setUser]    = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -14,10 +13,8 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (event === 'PASSWORD_RECOVERY') setIsRecoveryMode(true)
-      if (event === 'SIGNED_OUT')        setIsRecoveryMode(false)
     })
 
     return () => subscription.unsubscribe()
@@ -40,15 +37,12 @@ export function AuthProvider({ children }) {
 
   const resetPassword = (email) =>
     supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/settings`,
+      redirectTo: `${window.location.origin}/reset-password`,
     })
-
-  const clearRecoveryMode = () => setIsRecoveryMode(false)
 
   return (
     <AuthContext.Provider value={{
-      user, loading, signIn, signUp, signOut,
-      resetPassword, isRecoveryMode, clearRecoveryMode,
+      user, loading, signIn, signUp, signOut, resetPassword,
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { useTheme } from './lib/useTheme'
@@ -9,6 +9,7 @@ import RecipesPage from './pages/RecipesPage'
 import ShoppingPage from './pages/ShoppingPage'
 import SettingsPage from './pages/SettingsPage'
 import AuthPage from './pages/AuthPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5 } },
@@ -16,6 +17,9 @@ const queryClient = new QueryClient({
 
 function AppRoutes() {
   const { user, loading } = useAuth()
+  const location = useLocation()
+
+  if (location.pathname === '/reset-password') return <ResetPasswordPage />
 
   if (loading) return (
     <div className="min-h-screen bg-orange-50 flex items-center justify-center">
@@ -26,18 +30,17 @@ function AppRoutes() {
   if (!user) return <AuthPage />
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/home" replace />} />
-          <Route path="home"     element={<HomePage />} />
-          <Route path="planner"  element={<PlannerPage />} />
-          <Route path="recipes"  element={<RecipesPage />} />
-          <Route path="shopping" element={<ShoppingPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Navigate to="/home" replace />} />
+        <Route path="home"     element={<HomePage />} />
+        <Route path="planner"  element={<PlannerPage />} />
+        <Route path="recipes"  element={<RecipesPage />} />
+        <Route path="shopping" element={<ShoppingPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/home" replace />} />
+    </Routes>
   )
 }
 
@@ -46,7 +49,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppRoutes />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
   )

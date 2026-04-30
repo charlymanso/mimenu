@@ -280,6 +280,14 @@ export default function PlannerPage() {
   const [clipboard, setClipboard] = useState(null)
   const [importStatus, setImportStatus] = useState(null) // null | 'empty' | 'ok'
 
+  // Mobile: active day index (Mon=0 … Sun=6), defaults to today
+  const [activeDayIdx, setActiveDayIdx] = useState(() => {
+    const jsDay = new Date().getDay()
+    const map = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
+    const idx = DAYS.indexOf(map[jsDay])
+    return idx >= 0 ? idx : 0
+  })
+
   // ── Queries ──────────────────────────────────────────────
   const { data: rows = [], isLoading } = useQuery({
     queryKey: menuKey,
@@ -545,12 +553,34 @@ export default function PlannerPage() {
         ))}
       </div>
 
-      {/* Mobile list */}
-      <div className="sm:hidden space-y-3">
-        {DAYS.map(day => (
-          <div key={day} className="card">
-            <p className="font-semibold text-gray-700 mb-3">{DAY_LABELS[day]}</p>
-            <div className="grid grid-cols-2 gap-3">
+      {/* Mobile: un día a la vez */}
+      <div className="sm:hidden">
+        {/* Navegador de día */}
+        <div className="flex items-center justify-between mb-3 bg-white rounded-xl border border-orange-100 shadow-sm px-3 py-2">
+          <button
+            onClick={() => setActiveDayIdx(i => Math.max(0, i - 1))}
+            disabled={activeDayIdx === 0}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-orange-50 transition-colors disabled:opacity-30"
+            aria-label="Día anterior"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <p className="text-sm font-semibold text-gray-700">{DAY_LABELS_FULL[DAYS[activeDayIdx]]}</p>
+          <button
+            onClick={() => setActiveDayIdx(i => Math.min(DAYS.length - 1, i + 1))}
+            disabled={activeDayIdx === DAYS.length - 1}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-orange-50 transition-colors disabled:opacity-30"
+            aria-label="Día siguiente"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        {/* Comidas del día activo */}
+        {(() => {
+          const day = DAYS[activeDayIdx]
+          return (
+            <div className="card space-y-3">
               {MEALS.map(meal => (
                 <div key={meal}>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-1">
@@ -571,8 +601,8 @@ export default function PlannerPage() {
                 </div>
               ))}
             </div>
-          </div>
-        ))}
+          )
+        })()}
       </div>
     </div>
   )

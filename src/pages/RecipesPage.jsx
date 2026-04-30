@@ -321,6 +321,35 @@ function RecipeCard({ recipe, onEdit, onDelete, deleting }) {
   )
 }
 
+// ── Delete confirm modal ──────────────────────────────────────
+
+function DeleteConfirmModal({ recipe, onConfirm, onClose, busy }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-xs shadow-xl p-6 space-y-5">
+        <div className="text-center space-y-1">
+          <h3 className="font-semibold text-gray-800">¿Eliminar receta?</h3>
+          <p className="text-sm text-gray-500">
+            Se eliminará <span className="font-medium text-gray-700">"{recipe.name}"</span> permanentemente.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={busy} className="btn-secondary flex-1">
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex-1 py-2.5 px-4 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+          >
+            {busy ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ─────────────────────────────────────────────────────
 
 export default function RecipesPage() {
@@ -330,6 +359,7 @@ export default function RecipesPage() {
   const [editingRecipe, setEditingRecipe] = useState(null)
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const queryKey = ['recipes', user.id]
 
@@ -445,7 +475,8 @@ export default function RecipesPage() {
   const handleEdit = recipe => { setEditingRecipe(recipe); setShowModal(true) }
 
   const handleDelete = id => {
-    if (window.confirm('¿Eliminar esta receta?')) deleteMutation.mutate(id)
+    const recipe = recipes.find(r => r.id === id)
+    setDeleteTarget({ id, name: recipe?.name ?? '' })
   }
 
   const filtered = recipes.filter(r =>
@@ -520,6 +551,15 @@ export default function RecipesPage() {
           onSave={handleSave}
           onClose={closeModal}
           saving={saving}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          recipe={deleteTarget}
+          onConfirm={() => { deleteMutation.mutate(deleteTarget.id); setDeleteTarget(null) }}
+          onClose={() => setDeleteTarget(null)}
+          busy={deletingId === deleteTarget.id}
         />
       )}
     </div>

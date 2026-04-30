@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, RefreshCw, CheckSquare, Square, X } from 'lucide-react'
+import { Plus, RefreshCw, CheckSquare, Square, X, Share2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -221,6 +221,21 @@ export default function ShoppingPage() {
     setShowAdd(false)
   }
 
+  // ── Share ────────────────────────────────────────────────────
+  const shareOnWhatsApp = () => {
+    const lines = ['🛒 *Lista de compra*', '']
+    Object.entries(grouped).forEach(([category, items]) => {
+      lines.push(`${CATEGORY_ICONS[category] ?? '🛒'} *${category}*`)
+      items.forEach(item => {
+        const qty = [item.quantity, item.unit].filter(Boolean).join(' ')
+        lines.push(`• ${item.name}${qty ? ` — ${qty}` : ''}`)
+      })
+      lines.push('')
+    })
+    const text = lines.join('\n').trim()
+    window.open(`https://wa.me?text=${encodeURIComponent(text)}`, '_blank', 'noopener')
+  }
+
   // ── Render ───────────────────────────────────────────────────
   if (listLoading) return (
     <div className="flex items-center justify-center py-20">
@@ -244,6 +259,15 @@ export default function ShoppingPage() {
             <RefreshCw size={14} className={generateMutation.isPending ? 'animate-spin' : ''} />
             Regenerar
           </button>
+          {total > 0 && (
+            <button
+              onClick={shareOnWhatsApp}
+              className="btn-secondary text-sm flex items-center gap-1"
+            >
+              <Share2 size={14} />
+              Compartir
+            </button>
+          )}
           <button onClick={() => setShowAdd(!showAdd)} className="btn-primary text-sm">
             <Plus size={16} className="inline" />
           </button>

@@ -444,7 +444,12 @@ export default function PlannerPage() {
       <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Menú semanal</h1>
-          <p className="text-sm text-gray-400">{rows.length} de {totalSlots} comidas programadas</p>
+          <p className="text-sm text-gray-400">
+            <span className="hidden sm:inline">{rows.length} de {totalSlots} comidas programadas</span>
+            <span className="sm:hidden">
+              {MEALS.filter(m => weeklyMenu[DAYS[activeDayIdx]][m] !== null).length} de {MEALS.length} comidas del día
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button

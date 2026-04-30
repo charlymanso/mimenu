@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { translateAuthError } from '../lib/authErrors'
 
 // mode: 'signin' | 'signup' | 'forgot'
 
@@ -24,7 +25,7 @@ export default function AuthPage() {
     if (mode === 'forgot') {
       const { error } = await resetPassword(email)
       if (error) {
-        setError(error.message)
+        setError(translateAuthError(error.message))
       } else {
         setMessage('Si existe una cuenta con ese email, recibirás un enlace de recuperación.')
       }
@@ -37,7 +38,7 @@ export default function AuthPage() {
       : await signUp(email, password)
 
     if (error) {
-      setError(error.message)
+      setError(translateAuthError(error.message))
     } else if (mode === 'signup') {
       setMessage('Revisa tu email para confirmar tu cuenta antes de iniciar sesión.')
     }

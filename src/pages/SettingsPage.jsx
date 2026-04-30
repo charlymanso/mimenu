@@ -4,6 +4,7 @@ import { Camera, Loader2, Pencil, Check, X, ChevronDown, ChevronUp, LogOut, Moni
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/useTheme'
+import { translateAuthError } from '../lib/authErrors'
 
 const APP_VERSION = '1.0.0'
 
@@ -102,7 +103,7 @@ export default function SettingsPage() {
       setTimeout(() => setProfileOk(null), 3000)
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] })
     },
-    onError: (e) => { setProfileErr(e.message); setProfileOk(null) },
+    onError: (e) => { setProfileErr(translateAuthError(e.message)); setProfileOk(null) },
   })
 
   const saveName = () => profileMutation.mutate({
@@ -141,7 +142,7 @@ export default function SettingsPage() {
     const { error } = await resetPassword(user.email)
     setPwResetBusy(false)
     if (error) {
-      setPwResetErr(error.message)
+      setPwResetErr(translateAuthError(error.message))
     } else {
       setPwResetOk('Te hemos enviado un email para cambiar la contraseña')
       setTimeout(() => setPwResetOk(null), 6000)

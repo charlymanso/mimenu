@@ -9,7 +9,7 @@ async function callClaude(body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!response.ok) throw new Error(`Claude API error: ${response.statusText}`)
+  if (!response.ok) throw new Error('Error al conectar con Claude. Inténtalo de nuevo.')
   return response.json()
 }
 
@@ -48,7 +48,7 @@ Responde en formato JSON con esta estructura:
     const jsonMatch = data.content[0].text.match(/\{[\s\S]*\}/)
     return JSON.parse(jsonMatch[0])
   } catch {
-    throw new Error('Could not parse Claude response as JSON')
+    throw new Error('No se pudo procesar la respuesta de Claude. Inténtalo de nuevo.')
   }
 }
 
@@ -94,6 +94,6 @@ Solo incluye los slots que estaban vacíos.`,
     const jsonMatch = data.content[0].text.match(/\{[\s\S]*\}/)
     return JSON.parse(jsonMatch[0])
   } catch {
-    throw new Error('Could not parse Claude response as JSON')
+    throw new Error('No se pudo procesar la respuesta de Claude. Inténtalo de nuevo.')
   }
 }

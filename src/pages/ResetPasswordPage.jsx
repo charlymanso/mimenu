@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Lock, Loader2, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { translateAuthError } from '../lib/authErrors'
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
@@ -42,7 +43,7 @@ export default function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password })
     setBusy(false)
     if (error) {
-      setErr(error.message)
+      setErr(translateAuthError(error.message))
     } else {
       setDone(true)
       setTimeout(() => navigate('/home', { replace: true }), 1500)

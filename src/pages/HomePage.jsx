@@ -81,10 +81,7 @@ export default function HomePage() {
     return map
   }, [rows])
 
-  const todayMealMap    = allMealsByDay[todayKey]    ?? {}
   const selectedMealMap = allMealsByDay[selectedDay] ?? {}
-
-  const todayDoneCount    = MEALS.filter(m => todayMealMap[m]?.done).length
   const selectedDoneCount = MEALS.filter(m => selectedMealMap[m]?.done).length
 
   const displayName = profile?.display_name || ''
@@ -209,16 +206,39 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* ── Desktop: diseño compacto actual ── */}
+      {/* ── Desktop: diseño compacto con navegación de días ── */}
       <div className="hidden sm:block card space-y-1 pb-3">
         <div className="flex items-center justify-between pb-3 mb-1 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-700">Hoy</h2>
-          <span className="text-sm text-gray-400">{todayDoneCount} de {MEALS.length} comidas hechas</span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setSelectedDayIdx(i => Math.max(0, i - 1))}
+              disabled={selectedDayIdx === 0}
+              className="p-1 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-orange-50 disabled:opacity-30 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-gray-700">{DAY_LABELS_FULL[selectedDay]}</h2>
+              {selectedDay === todayKey && (
+                <span className="text-[10px] font-semibold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                  Hoy
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedDayIdx(i => Math.min(6, i + 1))}
+              disabled={selectedDayIdx === 6}
+              className="p-1 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-orange-50 disabled:opacity-30 transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <span className="text-sm text-gray-400">{selectedDoneCount} de {MEALS.length} comidas hechas</span>
         </div>
 
         {MEALS.map(meal => {
           const { label, Icon } = MEAL_META[meal]
-          const entry   = todayMealMap[meal]
+          const entry   = selectedMealMap[meal]
           const hasText = !!entry?.text
           const isDone  = entry?.done ?? false
 
@@ -253,7 +273,7 @@ export default function HomePage() {
               </div>
               {hasText && (
                 <button
-                  onClick={() => doneMutation.mutate({ meal, done: !isDone, day: todayKey })}
+                  onClick={() => doneMutation.mutate({ meal, done: !isDone, day: selectedDay })}
                   title={isDone ? 'Desmarcar' : 'Marcar como hecha'}
                   className={`flex-shrink-0 transition-colors ${
                     isDone
